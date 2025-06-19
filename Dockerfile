@@ -1,4 +1,4 @@
-# Use Python 3.10 slim image for better compatibility
+# Use Python 3.10 sürümü
 FROM python:3.10-slim
 
 # Set working directory
