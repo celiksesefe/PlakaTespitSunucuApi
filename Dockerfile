@@ -46,4 +46,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
 EXPOSE $PORT
 
 # Use Railway-compatible start command
-CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD python run.py
