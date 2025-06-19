@@ -15,12 +15,8 @@ MAX_IMAGE_DIMENSION = 2048  # Max dimension for processing
 THUMBNAIL_SIZE = (1920, 1920)  # Thumbnail size for very large images
 JPEG_QUALITY = 85  # Quality for image compression if needed
 
-# OCR Configuration (matching training implementation)
-OCR_DETAIL = True
-OCR_WIDTH_THS = 0.7
-OCR_HEIGHT_THS = 0.7
-OCR_MIN_CONFIDENCE = 0.6
-DETECTION_MIN_CONFIDENCE = 0.5
+# Detection configuration (matching training)
+DETECTION_MIN_CONFIDENCE = 0.25  # Lower threshold to match training behavior
 
 # Paths
 BASE_DIR = Path(__file__).parent.parent

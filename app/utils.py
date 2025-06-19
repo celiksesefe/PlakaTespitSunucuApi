@@ -94,19 +94,20 @@ def preprocess_image(image_bytes: bytes) -> tuple[Image.Image, np.ndarray]:
 
 def preprocess_crop_for_ocr(crop: np.ndarray) -> np.ndarray:
     """
-    Preprocess cropped plate region for OCR (exactly matching training code)
+    Preprocess cropped plate region for OCR (EXACTLY matching training code)
     """
     try:
-        # Convert to grayscale
-        gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
+        # The crop should already be in BGR format from cv2.imread equivalent
+        # Convert BGR to grayscale (exactly as training)
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
         
-        # Histogram equalization
+        # Histogram equalization (exactly as training)
         equalized = cv2.equalizeHist(gray)
         
-        # Gaussian blur
+        # Gaussian blur with (5,5) kernel (exactly as training)
         blurred = cv2.GaussianBlur(equalized, (5, 5), 0)
         
-        # Binary threshold using Otsu's method
+        # Binary threshold using Otsu's method (exactly as training)
         _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
         return binary
@@ -114,4 +115,6 @@ def preprocess_crop_for_ocr(crop: np.ndarray) -> np.ndarray:
     except Exception as e:
         logger.warning(f"OCR preprocessing failed, using original: {e}")
         # Fallback to grayscale if preprocessing fails
-        return cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
+        if len(crop.shape) == 3:
+            return cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        return crop
