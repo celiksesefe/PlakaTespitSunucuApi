@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from fastapi import APIRouter, File, UploadFile, Depends
+from fastapi import APIRouter, File, UploadFile, Depends, Request
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 import os
@@ -26,8 +26,27 @@ def get_db():
     finally:
         db.close()
 
+def get_image_url(request: Request, filename: str) -> str:
+    """
+    Generate a proper URL for the uploaded image that works in both local and cloud environments
+    """
+    # Get the base URL from the request
+    base_url = str(request.base_url).rstrip('/')
+    
+    # Create relative URL path
+    image_url = f"{base_url}/static/uploads/{filename}"
+    
+    return image_url
+
+def get_relative_path(filename: str) -> str:
+    """
+    Get relative path for database storage (cloud-friendly)
+    """
+    return f"static/uploads/{filename}"
+
 @router.post("/predict", summary="Görselden plaka tespiti ve gelişmiş OCR")
 async def predict_plate_api(
+    request: Request,  # Add Request parameter for URL generation
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -39,10 +58,17 @@ async def predict_plate_api(
         validate_image(contents, file.filename)
         ext = os.path.splitext(file.filename)[1]
         filename = f"{uuid.uuid4()}{ext}"
-        image_path = os.path.join(UPLOAD_DIR, filename)
+        
+        # Local file path for saving (absolute)
+        local_image_path = os.path.join(UPLOAD_DIR, filename)
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        with open(image_path, "wb") as f:
+        
+        with open(local_image_path, "wb") as f:
             f.write(contents)
+
+        # Generate URLs and paths for response
+        image_url = get_image_url(request, filename)  # Full URL for frontend
+        relative_path = get_relative_path(filename)   # Relative path for database
 
         # 2. Görseli yükle ve preprocess et
         image_pil, image_np_rgb = preprocess_image(contents)
@@ -78,13 +104,15 @@ async def predict_plate_api(
                         # 6. Tüm OCR sonuçlarını al (ocr.py)
                         ocr_results = get_all_ocr_results(processed)
 
+                        paddleocr_text = ocr_results['paddleocr']
+
                         # 7. Post-processing, skor hesabı vs.
                         cleaned_text = ocr_results['ensemble']
 
-                        # 8. Veritabanına kaydet (sadece ensemble sonucunu)
+                        # 8. Veritabanına kaydet (relative path ile)
                         record = PlateRecord(
-                            plate_text=cleaned_text,
-                            image_path=image_path
+                                    plate_text=paddleocr_text,
+                                    image_path=image_url
                         )
                         db.add(record)
                         db.commit()
@@ -105,7 +133,8 @@ async def predict_plate_api(
                             "ocr_paddleocr_time": round(ocr_results['paddleocr_processing_time'], 3),
                             "ensemble": cleaned_text,
                             "ensemble_source": ocr_results['ensemble_source'],
-                            "image_path": image_path,
+                            "image_url": image_url,        # Full URL for frontend access
+                            "image_path": relative_path,   # Relative path for compatibility
                             "detected_at": str(record.detected_at)
                         })
 
