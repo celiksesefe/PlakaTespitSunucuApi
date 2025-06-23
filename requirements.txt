@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+python-dotenv
+ultralytics
+easyocr
+paddleocr
+pytesseract
+opencv-python
+pillow
+python-multipart
+tqdm
+scikit-image
