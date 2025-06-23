@@ -13,3 +13,4 @@ python-multipart
 tqdm
 scikit-image
 paddlepaddle
+boto3

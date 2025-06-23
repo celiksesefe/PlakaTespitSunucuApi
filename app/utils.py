@@ -13,20 +13,28 @@ from .exceptions import InvalidImageError, FileSizeError
 logger = logging.getLogger(__name__)
 
 def validate_image(file_content: bytes, filename: str) -> None:
-    """Yüklenen görselin format ve boyut kontrolü"""
+    """
+    Yüklenen görselin format ve boyut kontrolü yapar.
+    Eğer dosya büyükse veya desteklenmeyen bir format ise uygun hata fırlatır.
+    """
     if len(file_content) > MAX_FILE_SIZE:
         raise FileSizeError(f"File size exceeds {MAX_FILE_SIZE // (1024*1024)}MB limit")
+    
     file_ext = Path(filename).suffix.lower()
     if file_ext not in ALLOWED_EXTENSIONS:
         raise InvalidImageError(f"Unsupported file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
+    
     try:
         image = Image.open(io.BytesIO(file_content))
-        image.verify()
+        image.verify()  # Görselin geçerli ve bozuk olmadığını kontrol eder
     except Exception:
         raise InvalidImageError("Invalid or corrupted image file")
 
 def correct_orientation(image: Image.Image) -> Image.Image:
-    """EXIF dataya göre oryantasyon düzeltir"""
+    """
+    Görselin EXIF metadata'sına bakarak yönünü düzeltir.
+    Bazı cihazlarda fotoğrafın oryantasyonu metadata ile saklanır.
+    """
     try:
         exif = image._getexif()
         if exif:
@@ -39,11 +47,15 @@ def correct_orientation(image: Image.Image) -> Image.Image:
                     elif value == 8:
                         image = image.rotate(90, expand=True)
     except (AttributeError, KeyError):
+        # EXIF verisi yoksa veya işlenemezse, hata vermez
         pass
     return image
 
 def optimize_for_processing(image: Image.Image) -> Image.Image:
-    """Büyük görselleri orantılı şekilde boyutlandırır (işlem kolaylığı için)"""
+    """
+    Çok büyük görsellerin işlem yükünü azaltmak için 
+    maksimum bir boyuta göre orantılı küçültme yapar.
+    """
     original_size = image.size
     max_dimension = max(original_size)
     if max_dimension > MAX_IMAGE_DIMENSION:
@@ -54,7 +66,15 @@ def optimize_for_processing(image: Image.Image) -> Image.Image:
     return image
 
 def preprocess_image(image_bytes: bytes) -> tuple[Image.Image, np.ndarray]:
-    """Ana görseli tespit için hazırlar (PIL ve NumPy formatında döndürür)"""
+    """
+    Ham bayt olarak gelen görseli,
+    - PIL Image formatına dönüştürür,
+    - Oryantasyonunu düzeltir,
+    - RGB'ye çevirir,
+    - Optimizasyon için boyutlandırır,
+    - NumPy array formatına çevirir ve
+    ikisini tuple olarak döner.
+    """
     try:
         image = Image.open(io.BytesIO(image_bytes))
         image = correct_orientation(image)

@@ -24,3 +24,12 @@ DETECTION_MIN_CONFIDENCE = 0.25
 BASE_DIR = Path(__file__).parent.parent
 UPLOAD_DIR = BASE_DIR / "app" / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# --- AWS S3 Ayarları ---
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_S3_BUCKET_NAME = os.getenv("AWS_S3_BUCKET_NAME")
+AWS_S3_REGION = os.getenv("AWS_S3_REGION")
+
+# (Opsiyonel) S3 URL template (eğer özel domain yoksa)
+AWS_S3_BASE_URL = f"https://{AWS_S3_BUCKET_NAME}.s3.{AWS_S3_REGION}.amazonaws.com"
