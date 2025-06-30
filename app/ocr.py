@@ -10,7 +10,7 @@ from collections import Counter
 import time
 
 # YENİ IMPORT - Enhanced functionality için
-from .ocr_enhancement import enhanced_clean_text, enhanced_validation, smart_ensemble_decision
+from .ocr_enhancement import enhanced_clean_text, enhanced_validation, smart_ensemble_decision, format_plate_with_spaces
 
 logger = logging.getLogger(__name__)
 
@@ -243,8 +243,14 @@ def paddleocr_plate(img):
         }
 
 def clean_plate_text(text):
-    """Gelişmiş metin temizleme - Enhanced logic kullanıyor"""
-    return enhanced_clean_text(text)
+    """Gelişmiş metin temizleme - Enhanced logic + formatting kullanıyor"""
+    # Önce enhanced cleaning yap
+    cleaned = enhanced_clean_text(text)
+    
+    # Sonra boşluklu format ekle
+    formatted = format_plate_with_spaces(cleaned)
+    
+    return formatted
 
 def validate_turkish_plate(text):
     """Gelişmiş format kontrolü - Enhanced logic kullanıyor"""
@@ -275,7 +281,7 @@ def get_all_ocr_results(img):
         else:
             ensemble_source = "fallback"
         
-        # Clean individual results for backward compatibility
+        # Clean individual results for display (now with spaces)
         easyocr_cleaned = clean_plate_text(easyocr_result['text'])
         paddleocr_cleaned = clean_plate_text(paddleocr_result['text'])
         

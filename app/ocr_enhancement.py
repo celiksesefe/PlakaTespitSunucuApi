@@ -1,5 +1,5 @@
 # app/ocr_enhancement.py
-# YENİ DOSYA - Complete OCR accuracy enhancement utilities
+# COMPLETE OCR accuracy enhancement utilities
 
 import re
 import logging
@@ -40,6 +40,37 @@ def enhanced_clean_text(text):
     if len(text) < 2 or len(text) > 10:
         return ""
     
+    return text
+
+def format_plate_with_spaces(text):
+    """
+    Format plate text with spaces in YY ABC 123 pattern
+    """
+    if not text or len(text) < 5:
+        return text
+    
+    # Standard Turkish format: 34ABC123 → 34 ABC 123
+    standard_match = re.match(r'^([0-9]{2})([A-Z]{1,3})([0-9]{1,4})$', text)
+    if standard_match:
+        province, letters, numbers = standard_match.groups()
+        return f"{province} {letters} {numbers}"
+    
+    # Diplomatic format: ABC1234 → ABC 1234 (no change needed for short ones)
+    diplomatic_match = re.match(r'^([A-Z]{2,3})([0-9]{3,4})([A-Z]?)$', text)
+    if diplomatic_match:
+        letters, numbers, trailing = diplomatic_match.groups()
+        if trailing:
+            return f"{letters} {numbers} {trailing}"
+        else:
+            return f"{letters} {numbers}"
+    
+    # Old format: A1234BC → A 1234 BC
+    old_match = re.match(r'^([A-Z]{1,2})([0-9]{2,4})([A-Z]{1,2})$', text)
+    if old_match:
+        letters1, numbers, letters2 = old_match.groups()
+        return f"{letters1} {numbers} {letters2}"
+    
+    # If no pattern matches, return as is
     return text
 
 def enhanced_validation(text):
@@ -452,6 +483,7 @@ def calculate_confidence_boost(text, original_confidence):
 def smart_ensemble_decision(easyocr_text, easyocr_conf, paddleocr_text, paddleocr_conf):
     """
     Smart ensemble decision with position-aware validation for all combinations
+    Returns formatted result with spaces
     """
     # Clean both texts
     easy_cleaned = enhanced_clean_text(easyocr_text)
@@ -465,26 +497,45 @@ def smart_ensemble_decision(easyocr_text, easyocr_conf, paddleocr_text, paddleoc
     if easy_cleaned == paddle_cleaned and easy_cleaned:
         # Both engines agree after cleaning
         confidence = max(easyocr_conf, paddleocr_conf)
-        return easy_cleaned, calculate_confidence_boost(easy_cleaned, confidence), "both_agree"
+        final_text = easy_cleaned
+        boosted_confidence = calculate_confidence_boost(final_text, confidence)
+        formatted_text = format_plate_with_spaces(final_text)
+        return formatted_text, boosted_confidence, "both_agree"
     
     elif easy_valid and not paddle_valid:
         # Only EasyOCR gives valid format
-        return easy_cleaned, calculate_confidence_boost(easy_cleaned, easyocr_conf), "easyocr_valid"
+        final_text = easy_cleaned
+        boosted_confidence = calculate_confidence_boost(final_text, easyocr_conf)
+        formatted_text = format_plate_with_spaces(final_text)
+        return formatted_text, boosted_confidence, "easyocr_valid"
     
     elif paddle_valid and not easy_valid:
         # Only PaddleOCR gives valid format
-        return paddle_cleaned, calculate_confidence_boost(paddle_cleaned, paddleocr_conf), "paddleocr_valid"
+        final_text = paddle_cleaned
+        boosted_confidence = calculate_confidence_boost(final_text, paddleocr_conf)
+        formatted_text = format_plate_with_spaces(final_text)
+        return formatted_text, boosted_confidence, "paddleocr_valid"
     
     elif easy_valid and paddle_valid:
         # Both valid, choose higher confidence
         if easyocr_conf >= paddleocr_conf:
-            return easy_cleaned, calculate_confidence_boost(easy_cleaned, easyocr_conf), "both_valid_easy_higher"
+            final_text = easy_cleaned
+            boosted_confidence = calculate_confidence_boost(final_text, easyocr_conf)
+            formatted_text = format_plate_with_spaces(final_text)
+            return formatted_text, boosted_confidence, "both_valid_easy_higher"
         else:
-            return paddle_cleaned, calculate_confidence_boost(paddle_cleaned, paddleocr_conf), "both_valid_paddle_higher"
+            final_text = paddle_cleaned
+            boosted_confidence = calculate_confidence_boost(final_text, paddleocr_conf)
+            formatted_text = format_plate_with_spaces(final_text)
+            return formatted_text, boosted_confidence, "both_valid_paddle_higher"
     
     else:
         # Neither valid, choose higher confidence
         if easyocr_conf >= paddleocr_conf:
-            return easy_cleaned, easyocr_conf, "neither_valid_easy_higher"
+            final_text = easy_cleaned
+            formatted_text = format_plate_with_spaces(final_text)
+            return formatted_text, easyocr_conf, "neither_valid_easy_higher"
         else:
-            return paddle_cleaned, paddleocr_conf, "neither_valid_paddle_higher"
+            final_text = paddle_cleaned
+            formatted_text = format_plate_with_spaces(final_text)
+            return formatted_text, paddleocr_conf, "neither_valid_paddle_higher"
