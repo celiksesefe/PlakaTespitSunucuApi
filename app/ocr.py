@@ -9,6 +9,9 @@ import threading
 from collections import Counter
 import time
 
+# YENİ IMPORT - Enhanced functionality için
+from .ocr_enhancement import enhanced_clean_text, enhanced_validation, smart_ensemble_decision
+
 logger = logging.getLogger(__name__)
 
 # Karakter allowlist (Türk plakası için)
@@ -240,49 +243,15 @@ def paddleocr_plate(img):
         }
 
 def clean_plate_text(text):
-    """Türk plakası için metin temizleme"""
-    if not text:
-        return ""
-    
-    text = text.upper().strip()
-    
-    # Hızlı karakter düzeltmeleri
-    replacements = {
-        'O': '0', 'I': '1', 'Q': '0', 'S': '5', 'Z': '2',
-        'G': '6', 'B': '8', 'D': '0', 'l': '1', 'o': '0'
-    }
-    
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-    
-    # Regex ile temizlik
-    text = re.sub(r"[^A-Z0-9]", "", text)
-    
-    # Uzunluk kontrolü
-    if len(text) < 2 or len(text) > 10:
-        return ""
-    
-    return text
+    """Gelişmiş metin temizleme - Enhanced logic kullanıyor"""
+    return enhanced_clean_text(text)
 
 def validate_turkish_plate(text):
-    """Türk plakası format kontrolü"""
-    if not text or len(text) < 5:
-        return False
-    
-    # Hızlı pattern kontrolü
-    if re.match(r'^[0-9]{2}[A-Z]{1,3}[0-9]{1,4}$', text):
-        return True
-    if re.match(r'^[A-Z]{1,2}[0-9]{2,4}[A-Z]{1,2}$', text):
-        return True
-    
-    # Basit harf/rakam kontrolü
-    letter_count = sum(1 for c in text if c.isalpha())
-    digit_count = sum(1 for c in text if c.isdigit())
-    
-    return letter_count >= 1 and digit_count >= 1
+    """Gelişmiş format kontrolü - Enhanced logic kullanıyor"""
+    return enhanced_validation(text)
 
 def get_all_ocr_results(img):
-    """Tüm OCR sonuçlarını detaylı döndür"""
+    """Tüm OCR sonuçlarını detaylı döndür - Smart position-aware ensemble logic ile"""
     total_start_time = time.time()
     
     try:
@@ -290,37 +259,31 @@ def get_all_ocr_results(img):
         easyocr_result = easyocr_plate(img)
         paddleocr_result = paddleocr_plate(img)
         
-        # Ensemble mantığı
+        # Smart ensemble decision - CORE IMPROVEMENT
+        ensemble_text, ensemble_confidence, decision_reason = smart_ensemble_decision(
+            easyocr_result['text'], easyocr_result['confidence'],
+            paddleocr_result['text'], paddleocr_result['confidence']
+        )
+        
+        # Determine ensemble source based on decision
+        if "both_agree" in decision_reason:
+            ensemble_source = "both"
+        elif "easyocr" in decision_reason:
+            ensemble_source = "easyocr"
+        elif "paddleocr" in decision_reason:
+            ensemble_source = "paddleocr"
+        else:
+            ensemble_source = "fallback"
+        
+        # Clean individual results for backward compatibility
         easyocr_cleaned = clean_plate_text(easyocr_result['text'])
         paddleocr_cleaned = clean_plate_text(paddleocr_result['text'])
         
-        # En iyi sonucu seç
-        ensemble_text = ""
-        ensemble_confidence = 0.0
-        ensemble_source = "none"
-        
-        if easyocr_cleaned == paddleocr_cleaned and easyocr_cleaned:
-            ensemble_text = easyocr_cleaned
-            ensemble_confidence = max(easyocr_result['confidence'], paddleocr_result['confidence'])
-            ensemble_source = "both"
-        elif validate_turkish_plate(easyocr_cleaned):
-            ensemble_text = easyocr_cleaned
-            ensemble_confidence = easyocr_result['confidence']
-            ensemble_source = "easyocr"
-        elif validate_turkish_plate(paddleocr_cleaned):
-            ensemble_text = paddleocr_cleaned
-            ensemble_confidence = paddleocr_result['confidence']
-            ensemble_source = "paddleocr"
-        elif len(easyocr_cleaned) >= len(paddleocr_cleaned):
-            ensemble_text = easyocr_cleaned
-            ensemble_confidence = easyocr_result['confidence']
-            ensemble_source = "easyocr"
-        else:
-            ensemble_text = paddleocr_cleaned
-            ensemble_confidence = paddleocr_result['confidence']
-            ensemble_source = "paddleocr"
-        
         total_processing_time = time.time() - total_start_time
+        
+        # Log the decision for debugging
+        logger.debug(f"OCR Decision: {decision_reason}, Easy: '{easyocr_result['text']}' → '{easyocr_cleaned}', "
+                    f"Paddle: '{paddleocr_result['text']}' → '{paddleocr_cleaned}', Final: '{ensemble_text}'")
         
         return {
             "easyocr": easyocr_cleaned,
